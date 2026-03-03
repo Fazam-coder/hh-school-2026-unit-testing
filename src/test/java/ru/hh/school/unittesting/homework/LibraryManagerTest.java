@@ -11,11 +11,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-public class LibraryManagerTest {
+class LibraryManagerTest {
     @Mock
     private NotificationService notificationService;
     @Mock
@@ -37,35 +37,38 @@ public class LibraryManagerTest {
 
     @Test
     void testBorrowBookIfBookNotFound() {
-        when(userService.isUserActive(eq("4"))).thenReturn(true);
+        when(userService.isUserActive("4")).thenReturn(true);
         assertFalse(libraryManager.borrowBook("Third", "4"));
     }
 
-    @ParameterizedTest
-    @CsvSource({
-            "First, 4",
-            "Second, 3",
-            "First, 5"
-    })
-    void testBorrowBookIfAllSuccess(String bookId, String userId) {
-        when(userService.isUserActive(eq(userId))).thenReturn(true);
-        assertTrue(libraryManager.borrowBook(bookId, userId));
+    @Test
+    void testBorrowBookIfAllSuccess() {
+        when(userService.isUserActive("4")).thenReturn(true);
+        assertTrue(libraryManager.borrowBook("First", "4"));
+        assertEquals(2, libraryManager.getAvailableCopies("First"));
+        verify(notificationService).notifyUser("4", "You have borrowed the book: First");
     }
 
     @Test
-    void testReturnBookIfBookNotBorrowedOrUserNotMatch() {
+    void testReturnBookIfBookNotBorrowed() {
         libraryManager.borrowBook("Second", "3");
         assertFalse(libraryManager.returnBook("First", "3"));
+    }
 
+    @Test
+    void testReturnBookIfUserNotMatch() {
+        when(userService.isUserActive(any())).thenReturn(true);
         libraryManager.borrowBook("First", "2");
         assertFalse(libraryManager.returnBook("First", "3"));
     }
 
     @Test
     void testReturnBookIfAllSuccess() {
-        when(userService.isUserActive(eq("5"))).thenReturn(true);
+        when(userService.isUserActive("5")).thenReturn(true);
         libraryManager.borrowBook("Second", "5");
         assertTrue(libraryManager.returnBook("Second", "5"));
+        assertEquals(2, libraryManager.getAvailableCopies("Second"));
+        verify(notificationService).notifyUser("5", "You have returned the book: Second");
     }
 
     @Test
@@ -73,14 +76,16 @@ public class LibraryManagerTest {
         assertEquals(3, libraryManager.getAvailableCopies("First"));
     }
 
-    @Test
-    void testCalculateDynamicLateFeeIfNegativeOverdueDays() {
+    @ParameterizedTest
+    @CsvSource({
+            "-3, true, true",
+            "-1, false, true",
+            "-5, true, false",
+            "-2, false, false"
+    })
+    void testCalculateDynamicLateFeeIfNegativeOverdueDays(int overdueDays, boolean isBestseller, boolean isPremiumMember) {
         assertThrows(IllegalArgumentException.class, () ->
-                libraryManager.calculateDynamicLateFee(-3, true, true));
-        assertThrows(IllegalArgumentException.class, () ->
-                libraryManager.calculateDynamicLateFee(-1, false, true));
-        assertThrows(IllegalArgumentException.class, () ->
-                libraryManager.calculateDynamicLateFee(-5, true, false));
+                libraryManager.calculateDynamicLateFee(overdueDays, isBestseller, isPremiumMember));
     }
 
     @ParameterizedTest
