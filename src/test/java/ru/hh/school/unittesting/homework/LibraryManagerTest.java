@@ -33,6 +33,7 @@ class LibraryManagerTest {
     void testBorrowBookUserIsNotActive() {
         when(userService.isUserActive(any())).thenReturn(false);
         assertFalse(libraryManager.borrowBook("First", "4"));
+        verify(notificationService).notifyUser("4", "Your account is not active.");
     }
 
     @Test
